@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getThemesForStep, getSteps, getNotionsForTheme } from '../services/api';
 import PromptDisplay from '../components/promptDisplay';
+import { formatLevel2Prompt } from '../components/promptFormatter';
 
 const StepPage = ({ token }) => {
     const { stepUuid } = useParams();
@@ -14,7 +15,6 @@ const StepPage = ({ token }) => {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                let promptText = '';
 
                 // Récupérer l'étape
                 const stepsData = await getSteps(token);
@@ -22,26 +22,23 @@ const StepPage = ({ token }) => {
                 setStep(currentStep);
 
                 if (currentStep) {
-                    promptText += `Étape: ${currentStep.name}\n\n`;
-
-                    // Récupérer les thèmes de l'étape
+                    // Récupérer les thèmes
                     const themesData = await getThemesForStep(stepUuid, token);
                     setThemes(themesData);
 
+                    // Créer une Map pour stocker les notions par thème
+                    const notionsMap = new Map();
+
+                    // Récupérer les notions pour chaque thème
                     for (const theme of themesData) {
-                        promptText += `\nThème: ${theme.name}\n`;
-
-                        // Récupérer les notions du thème
                         const notions = await getNotionsForTheme(theme.uuid, token);
-
-                        for (const notion of notions) {
-                            promptText += `\n  Question: ${notion.question}\n`;
-                            promptText += `  Réponse: ${notion.answer}\n`;
-                        }
+                        notionsMap.set(theme.uuid, notions);
                     }
-                }
 
-                setPromptData(promptText);
+                    // Formater le prompt
+                    const promptText = formatLevel2Prompt(currentStep, themesData, notionsMap);
+                    setPromptData(promptText);
+                }
                 setLoading(false);
             } catch (error) {
                 console.error('Failed to fetch data:', error);

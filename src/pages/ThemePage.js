@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getNotionsForTheme, getThemesForStep, getSteps } from '../services/api';
 import PromptDisplay from '../components/promptDisplay';
+import { formatLevel3Prompt } from '../components/promptFormatter';
 
 const ThemePage = ({ token }) => {
     const { themeUuid } = useParams();
@@ -14,7 +15,6 @@ const ThemePage = ({ token }) => {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                let promptText = '';
                 let foundTheme = null;
 
                 // Récupérer le thème
@@ -22,27 +22,21 @@ const ThemePage = ({ token }) => {
                 for (const step of steps) {
                     const themes = await getThemesForStep(step.uuid, token);
                     foundTheme = themes.find(t => t.uuid === themeUuid);
-                    if (foundTheme) {
-                        break;
-                    }
+                    if (foundTheme) break;
                 }
 
                 if (foundTheme) {
                     setTheme(foundTheme);
-                    promptText += `Thème: ${foundTheme.name}\n\n`;
 
                     // Récupérer les notions du thème
                     const notionsData = await getNotionsForTheme(themeUuid, token);
                     setNotions(notionsData);
 
-                    for (const notion of notionsData) {
-                        promptText += `Question: ${notion.question}\n`;
-                        promptText += `Réponse: ${notion.answer}\n`;
-                        promptText += '\n-------------------\n';
-                    }
+                    // Formater le prompt
+                    const promptText = formatLevel3Prompt(foundTheme, notionsData);
+                    setPromptData(promptText);
                 }
 
-                setPromptData(promptText);
                 setLoading(false);
             } catch (error) {
                 console.error('Failed to fetch data:', error);

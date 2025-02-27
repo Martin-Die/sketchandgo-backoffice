@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getSteps, getThemesForStep, getNotionsForTheme } from '../services/api';
 import PromptDisplay from '../components/promptDisplay';
+import { formatLevel4Prompt } from '../components/promptFormatter';
 
 const NotionPage = ({ token }) => {
     const { notionUuid } = useParams();
@@ -23,15 +24,14 @@ const NotionPage = ({ token }) => {
                     for (const theme of themes) {
                         const notions = await getNotionsForTheme(theme.uuid, token);
                         foundNotion = notions.find(n => n.uuid === notionUuid);
-                        if (foundNotion) {
-                            break outerLoop;
-                        }
+                        if (foundNotion) break outerLoop;
                     }
                 }
 
                 if (foundNotion) {
                     setNotion(foundNotion);
-                    const promptText = `Question: ${foundNotion.question}\nRéponse: ${foundNotion.answer}`;
+                    // Formater le prompt
+                    const promptText = formatLevel4Prompt(foundNotion);
                     setPromptData(promptText);
                 }
 

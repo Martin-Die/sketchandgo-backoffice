@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getSteps, getThemesForStep, getNotionsForTheme } from '../services/api';
 import PromptDisplay from './promptDisplay';
+import { formatLevel1Prompt } from './promptFormatter';
 
 const StepsList = ({ token }) => {
     const [steps, setSteps] = useState([]);
@@ -13,32 +14,29 @@ const StepsList = ({ token }) => {
         const fetchAllData = async () => {
             try {
                 setLoading(true);
-                let promptText = '';
 
                 // Récupérer toutes les étapes
                 const stepsData = await getSteps(token);
-                setSteps(stepsData); // Mettre à jour les steps ici
+                setSteps(stepsData);
 
-                for (const step of stepsData) { // Utiliser stepsData au lieu de steps
-                    promptText += `\nÉtape: ${step.name}\n`;
+                // Créer les Maps pour les thèmes et notions
+                const themesMap = new Map();
+                const notionsMap = new Map();
 
-                    // Récupérer les thèmes de l'étape
+                // Récupérer les thèmes et notions pour chaque étape
+                for (const step of stepsData) {
                     const themes = await getThemesForStep(step.uuid, token);
+                    themesMap.set(step.uuid, themes);
 
+                    // Récupérer les notions pour chaque thème
                     for (const theme of themes) {
-                        promptText += `\n  Thème: ${theme.name}\n`;
-
-                        // Récupérer les notions du thème
                         const notions = await getNotionsForTheme(theme.uuid, token);
-
-                        for (const notion of notions) {
-                            promptText += `\n    Question: ${notion.question}\n`;
-                            promptText += `    Réponse: ${notion.answer}\n`;
-                        }
+                        notionsMap.set(theme.uuid, notions);
                     }
-                    promptText += '\n-------------------\n';
                 }
 
+                // Formater le prompt
+                const promptText = formatLevel1Prompt(stepsData, themesMap, notionsMap);
                 setAllData(promptText);
                 setLoading(false);
             } catch (error) {

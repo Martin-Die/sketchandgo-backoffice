@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { login } from '../services/api';
 
 const Login = ({ onLogin }) => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+    const [username, setUsername] = useState('mdie@leblogdudirigeant.com');
+    const [password, setPassword] = useState('Test2025+10=2035!');
 
     const handleSubmit = async (e) => {
         e.preventDefault();

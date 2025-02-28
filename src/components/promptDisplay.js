@@ -1,26 +1,55 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { updatePrompt } from '../services/api';
 
 const SYSTEM_PROMPTS = {
-    LEVEL_1: `Tu es un assistant pédagogique qui aide à la révision de toutes les étapes.
-Utilise les questions et réponses suivantes pour aider l'utilisateur à réviser :`,
+    OBJECTIF_LEVEL_1: `Objectif :`,
 
-    LEVEL_2: `Tu es un assistant pédagogique qui aide à la révision d'une étape spécifique.
-Utilise les questions et réponses suivantes pour aider l'utilisateur à réviser cette étape :`,
+    OBJECTIF_LEVEL_2: `Objectif :`,
 
-    LEVEL_3: `Tu es un assistant pédagogique qui aide à la révision d'un thème spécifique.
-Utilise les questions et réponses suivantes pour aider l'utilisateur à réviser ce thème :`,
+    OBJECTIF_LEVEL_3: `Objectif :`,
 
-    LEVEL_4: `Tu es un assistant pédagogique qui aide à la révision d'une notion spécifique.
-Utilise la question et la réponse suivantes pour aider l'utilisateur à réviser cette notion :`
+    OBJECTIF_LEVEL_4: `Objectif :`
 };
 
-const PromptDisplay = ({ level, data }) => {
+const PromptDisplay = ({ level, data, uuid }) => {
+
+    const [promptValue, setPromptValue] = useState(SYSTEM_PROMPTS[`OBJECTIF_LEVEL_${level}`]);
+
+    const handleChange = (e) => {
+        setPromptValue(e.target.value);
+    };
+
+    const handleSave = async () => {
+        try {
+            await updatePrompt(uuid, { prompt: promptValue }); // Appel à l'API pour enregistrer le prompt
+            alert('Modifications enregistrées avec succès !');
+        } catch (error) {
+            alert('Erreur lors de l\'enregistrement des modifications.');
+        }
+    };
+
     return (
         <div className="prompt-section">
             <h3>Prompt de niveau {level}</h3>
             <div className="prompt-content">
                 <pre style={{ whiteSpace: 'pre-wrap' }}>
-                    {SYSTEM_PROMPTS[`LEVEL_${level}`]}
+                    <textarea
+                        value={promptValue}
+                        onChange={handleChange}
+                        rows={4}
+                        style={{
+                            width: '80%',
+                            padding: '10px',
+                            borderRadius: '4px',
+                            border: '1px solid #ddd',
+                            minWidth: '50%',
+                            minHeight: '100px'
+                        }}
+                    />
+                    {'\n'}
+                    <button onClick={handleSave} style={{ marginTop: '10px' }}>
+                        Enregistrer
+                    </button>
                     {'\n\n'}
                     {data}
                 </pre>

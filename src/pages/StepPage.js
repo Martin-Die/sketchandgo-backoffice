@@ -69,7 +69,7 @@ const StepPage = ({ token }) => {
                 {Object.entries(step).map(([key, value]) => (
                     <div key={key} style={{ margin: '10px 0' }}>
                         <strong>{key}: </strong>
-                        {typeof value === 'object' ? JSON.stringify(value, null, 2) : value}
+                        {/* {typeof value === 'object' ? JSON.stringify(value, null, 2) : value} */}
                     </div>
                 ))}
             </div>

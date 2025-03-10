@@ -81,7 +81,12 @@ const ThemePage = ({ token }) => {
                 ))}
             </ul>
 
-            <PromptDisplay level={3} data={promptData} />
+            <PromptDisplay
+                level={3}
+                data={promptData}
+                uuid={themeUuid}
+                token={token}
+            />
         </div>
     );
 };

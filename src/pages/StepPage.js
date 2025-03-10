@@ -87,7 +87,12 @@ const StepPage = ({ token }) => {
             ) : (
                 <p>Aucun thème disponible pour cette étape.</p>
             )}
-            <PromptDisplay level={2} data={promptData} />
+            <PromptDisplay
+                level={2}
+                data={promptData}
+                uuid={stepUuid}
+                token={token}
+            />
         </div>
     );
 };

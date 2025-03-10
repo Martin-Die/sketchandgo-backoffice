@@ -69,7 +69,12 @@ const NotionPage = ({ token }) => {
                 ))}
             </div>
 
-            <PromptDisplay level={4} data={promptData} />
+            <PromptDisplay
+                level={4}
+                data={promptData}
+                uuid={notionUuid}
+                token={token}
+            />
         </div>
     );
 };

@@ -63,7 +63,12 @@ const StepsList = ({ token }) => {
                 ))}
             </ul>
             <h1>Révision globale</h1>
-            <PromptDisplay level={1} data={allData} />
+            <PromptDisplay
+                level={1}
+                data={allData}
+                uuid={steps[0]?.uuid}
+                token={token}
+            />
         </div>
     );
 };

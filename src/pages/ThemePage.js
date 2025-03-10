@@ -6,35 +6,35 @@ import { formatLevel3Prompt } from '../components/promptFormatter';
 
 const ThemePage = ({ token }) => {
     const { themeUuid } = useParams();
-    const [notions, setNotions] = useState([]);
     const [theme, setTheme] = useState(null);
+    const [notions, setNotions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [promptData, setPromptData] = useState('');
+    const [selectedNotions, setSelectedNotions] = useState(new Set());
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [parentStep, setParentStep] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setLoading(true);
                 let foundTheme = null;
+                let foundStep = null;
 
-                // Récupérer le thème
                 const steps = await getSteps(token);
                 for (const step of steps) {
                     const themes = await getThemesForStep(step.uuid, token);
                     foundTheme = themes.find(t => t.uuid === themeUuid);
-                    if (foundTheme) break;
+                    if (foundTheme) {
+                        foundStep = step;
+                        break;
+                    }
                 }
 
                 if (foundTheme) {
                     setTheme(foundTheme);
-
-                    // Récupérer les notions du thème
+                    setParentStep(foundStep);
                     const notionsData = await getNotionsForTheme(themeUuid, token);
                     setNotions(notionsData);
-
-                    // Formater le prompt
-                    const promptText = formatLevel3Prompt(foundTheme, notionsData);
-                    setPromptData(promptText);
                 }
 
                 setLoading(false);
@@ -47,46 +47,115 @@ const ThemePage = ({ token }) => {
         fetchData();
     }, [themeUuid, token]);
 
-    if (loading) {
-        return <div>Chargement...</div>;
-    }
+    const handleNotionToggle = (notionUuid) => {
+        const newSelected = new Set(selectedNotions);
+        if (newSelected.has(notionUuid)) {
+            newSelected.delete(notionUuid);
+        } else {
+            newSelected.add(notionUuid);
+        }
+        setSelectedNotions(newSelected);
+    };
 
-    if (!theme) {
-        return <div>Thème non trouvé</div>;
-    }
+    const getSelectedData = () => {
+        if (!theme || selectedNotions.size === 0) return null;
+
+        const selectedNotionsData = notions.filter(notion =>
+            selectedNotions.has(notion.uuid)
+        );
+
+        return formatLevel3Prompt(theme, selectedNotionsData);
+    };
+
+    if (loading) return <div className="loading-state">Chargement...</div>;
+    if (!theme) return <div className="error-state">Thème non trouvé</div>;
 
     return (
-        <div>
-            <h1>Gestion du thème</h1>
-            <h2>{theme.name}</h2>
+        <div className="page-container">
+            <div className="nav-panel">
+                <div className="section-header">
+                    {!isSelectionMode && parentStep && (
+                        <Link
+                            to={`/step/${parentStep.uuid}`}
+                            className="back-link"
+                        >
+                            ← Retour à l'étape : {parentStep.name}
+                        </Link>
+                    )}
+                    <h2>{theme.name}</h2>
+                </div>
 
-            {/* Détails du thème */}
-            <h3>Détails du thème</h3>
-            <div style={{ whiteSpace: 'pre-wrap' }}>
-                {Object.entries(theme).map(([key, value]) => (
-                    <div key={key} style={{ margin: '10px 0' }}>
-                        <strong>{key}: </strong>
-                        {typeof value === 'object' ? JSON.stringify(value, null, 2) : value}
-                    </div>
-                ))}
+                <h3>Notions associées</h3>
+                <ul className="items-list">
+                    {notions.map((notion) => (
+                        <li key={notion.uuid} className="list-item">
+                            <div
+                                onClick={() => isSelectionMode ? handleNotionToggle(notion.uuid) : null}
+                                className={`item-container ${selectedNotions.has(notion.uuid) ? 'selected' : ''}`}
+                            >
+                                {isSelectionMode ? (
+                                    <div className="selection-container">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedNotions.has(notion.uuid)}
+                                            onChange={(e) => e.stopPropagation()}
+                                            className="selection-checkbox"
+                                        />
+                                        <span>{notion.name}</span>
+                                    </div>
+                                ) : (
+                                    <Link
+                                        to={`/notion/${notion.uuid}`}
+                                        className="nav-link"
+                                    >
+                                        {notion.name}
+                                    </Link>
+                                )}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
             </div>
 
-            {/* Liste des notions */}
-            <h3>Notions associées</h3>
-            <ul>
-                {notions.map((notion) => (
-                    <li key={notion.uuid}>
-                        <Link to={`/notion/${notion.uuid}`}>{notion.name}</Link>
-                    </li>
-                ))}
-            </ul>
+            <div className="content-panel">
+                <div className="section-header">
+                    <h2>Gestion du prompt</h2>
+                    <div>
+                        <span className={`selection-status ${isSelectionMode ? 'active' : ''}`}>
+                            {selectedNotions.size} notion(s) sélectionnée(s)
+                        </span>
+                        <button
+                            onClick={() => setIsSelectionMode(!isSelectionMode)}
+                            className={`action-button ${isSelectionMode ? 'danger' : 'primary'}`}
+                        >
+                            {isSelectionMode ? 'Terminer la sélection' : 'Modifier la sélection'}
+                        </button>
+                    </div>
+                </div>
 
-            <PromptDisplay
-                level={3}
-                data={promptData}
-                uuid={themeUuid}
-                token={token}
-            />
+                {selectedNotions.size > 0 && (
+                    <div className="info-card">
+                        <h4>Notions sélectionnées</h4>
+                        <div className="selected-items">
+                            {Array.from(selectedNotions).map(notionUuid => {
+                                const notion = notions.find(n => n.uuid === notionUuid);
+                                return notion ? (
+                                    <div key={notion.uuid} className="selected-item-tag">
+                                        {notion.name}
+                                    </div>
+                                ) : null;
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                <PromptDisplay
+                    level={3}
+                    data={getSelectedData()}
+                    uuid={themeUuid}
+                    token={token}
+                />
+            </div>
         </div>
     );
 };

@@ -74,10 +74,30 @@ export const getNotionsForTheme = async (themeUuid, token) => {
 export const getPrompt = async (uuid) => {
     try {
         const response = await axios.get(`${API_BASE_URL}api/user/prompt/get?uuid=${uuid}`);
+
+        // Afficher toutes les informations disponibles dans la réponse
+        console.log('Réponse complète de l\'API :', {
+            status: response.status, // Statut HTTP de la réponse (ex: 200, 404, etc.)
+            statusText: response.statusText, // Texte du statut HTTP (ex: "OK", "Not Found")
+            headers: response.headers, // En-têtes de la réponse
+            data: response.data, // Données renvoyées par l'API
+            config: response.config, // Configuration de la requête (URL, méthode, headers, etc.)
+        });
+
         return response.data;
     } catch (error) {
-        console.error('Failed to fetch prompt:', error);
-        throw error;
+        // Afficher des informations détaillées en cas d'erreur
+        console.error('Erreur lors de la récupération du prompt :', {
+            url: error.config?.url, // URL de la requête
+            method: error.config?.method, // Méthode HTTP (GET, POST, etc.)
+            headers: error.config?.headers, // En-têtes de la requête
+            data: error.config?.data, // Données envoyées (si applicable)
+            status: error.response?.status, // Statut de la réponse en cas d'erreur
+            statusText: error.response?.statusText, // Texte du statut en cas d'erreur
+            responseData: error.response?.data, // Données de la réponse en cas d'erreur
+        });
+
+        throw error; // Relancer l'erreur pour la gestion ultérieure
     }
 };
 

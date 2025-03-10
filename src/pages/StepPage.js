@@ -6,38 +6,32 @@ import { formatLevel2Prompt } from '../components/promptFormatter';
 
 const StepPage = ({ token }) => {
     const { stepUuid } = useParams();
-    const [themes, setThemes] = useState([]);
     const [step, setStep] = useState(null);
+    const [themes, setThemes] = useState([]);
+    const [notionsMap, setNotionsMap] = useState(new Map());
     const [loading, setLoading] = useState(true);
-    const [promptData, setPromptData] = useState('');
+    const [selectedThemes, setSelectedThemes] = useState(new Set());
+    const [selectedNotions, setSelectedNotions] = useState(new Set());
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setLoading(true);
-
-                // Récupérer l'étape
                 const stepsData = await getSteps(token);
                 const currentStep = stepsData.find(s => s.uuid === stepUuid);
                 setStep(currentStep);
 
                 if (currentStep) {
-                    // Récupérer les thèmes
                     const themesData = await getThemesForStep(stepUuid, token);
                     setThemes(themesData);
 
-                    // Créer une Map pour stocker les notions par thème
-                    const notionsMap = new Map();
-
-                    // Récupérer les notions pour chaque thème
+                    const notionsMapTemp = new Map();
                     for (const theme of themesData) {
                         const notions = await getNotionsForTheme(theme.uuid, token);
-                        notionsMap.set(theme.uuid, notions);
+                        notionsMapTemp.set(theme.uuid, notions);
                     }
-
-                    // Formater le prompt
-                    const promptText = formatLevel2Prompt(currentStep, themesData, notionsMap);
-                    setPromptData(promptText);
+                    setNotionsMap(notionsMapTemp);
                 }
                 setLoading(false);
             } catch (error) {
@@ -49,50 +43,263 @@ const StepPage = ({ token }) => {
         fetchData();
     }, [stepUuid, token]);
 
+    const handleThemeToggle = (themeUuid) => {
+        const newSelected = new Set(selectedThemes);
+        if (newSelected.has(themeUuid)) {
+            newSelected.delete(themeUuid);
+            // Désélectionner aussi toutes les notions de ce thème
+            const themeNotions = notionsMap.get(themeUuid) || [];
+            const newSelectedNotions = new Set(selectedNotions);
+            themeNotions.forEach(notion => {
+                newSelectedNotions.delete(notion.uuid);
+            });
+            setSelectedNotions(newSelectedNotions);
+        } else {
+            newSelected.add(themeUuid);
+        }
+        setSelectedThemes(newSelected);
+    };
 
-    if (loading) {
-        return <div>Chargement...</div>;
-    }
+    const handleNotionToggle = (notionUuid, themeUuid) => {
+        const newSelected = new Set(selectedNotions);
+        if (newSelected.has(notionUuid)) {
+            newSelected.delete(notionUuid);
+            // Si c'était la dernière notion sélectionnée du thème, désélectionner le thème aussi
+            const themeNotions = notionsMap.get(themeUuid) || [];
+            const hasSelectedNotions = themeNotions.some(notion =>
+                notion.uuid !== notionUuid && newSelected.has(notion.uuid)
+            );
+            if (!hasSelectedNotions) {
+                setSelectedThemes(prev => {
+                    const newThemes = new Set(prev);
+                    newThemes.delete(themeUuid);
+                    return newThemes;
+                });
+            }
+        } else {
+            newSelected.add(notionUuid);
+            // Sélectionner automatiquement le thème parent
+            setSelectedThemes(prev => new Set([...prev, themeUuid]));
+        }
+        setSelectedNotions(newSelected);
+    };
 
-    if (!step) {
-        return <div>Étape non trouvée</div>;
-    }
+    const getSelectedData = () => {
+        if (!step) return null;
+        if (selectedThemes.size === 0 && selectedNotions.size === 0) return null;
+
+        const selectedThemesData = themes.filter(theme =>
+            selectedThemes.has(theme.uuid)
+        );
+
+        const selectedNotionsMap = new Map();
+        selectedThemesData.forEach(theme => {
+            const themeNotions = notionsMap.get(theme.uuid) || [];
+            const filteredNotions = themeNotions.filter(notion =>
+                selectedNotions.has(notion.uuid)
+            );
+            if (filteredNotions.length > 0) {
+                selectedNotionsMap.set(theme.uuid, filteredNotions);
+            }
+        });
+
+        return formatLevel2Prompt(step, selectedThemesData, selectedNotionsMap);
+    };
+
+    if (loading) return <div>Chargement...</div>;
+    if (!step) return <div>Étape non trouvée</div>;
 
     return (
-        <div>
-            <h1>Gestion de l'étape</h1>
-            <h2>{step.name}</h2>
-
-            {/* Détails de l'étape */}
-            <h3>Détails de l'étape</h3>
-            <div style={{ whiteSpace: 'pre-wrap' }}>
-                {Object.entries(step).map(([key, value]) => (
-                    <div key={key} style={{ margin: '10px 0' }}>
-                        <strong>{key}: </strong>
-                        {/* {typeof value === 'object' ? JSON.stringify(value, null, 2) : value} */}
-                    </div>
-                ))}
-            </div>
-
-            {/* Liste des thèmes */}
-            <h3>Thèmes associés</h3>
-            {themes.length > 0 ? (
-                <ul>
+        <div style={{ display: 'flex', gap: '20px' }}>
+            {/* Panneau de gauche : Navigation */}
+            <div style={{
+                width: '300px',
+                borderRight: '1px solid #ddd',
+                padding: '20px'
+            }}>
+                <h2>{step.name}</h2>
+                <h3>Thèmes associés</h3>
+                <ul style={{ listStyle: 'none', padding: 0 }}>
                     {themes.map((theme) => (
-                        <li key={theme.uuid}>
-                            <Link to={`/theme/${theme.uuid}`}>{theme.name}</Link>
+                        <li key={theme.uuid} style={{ marginBottom: '15px' }}>
+                            <div
+                                onClick={() => isSelectionMode ? handleThemeToggle(theme.uuid) : null}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    backgroundColor: selectedThemes.has(theme.uuid) ? '#e9ecef' : 'transparent',
+                                    padding: '8px',
+                                    borderRadius: '4px',
+                                    cursor: isSelectionMode ? 'pointer' : 'default',
+                                    transition: 'background-color 0.2s'
+                                }}
+                            >
+                                {isSelectionMode ? (
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        width: '100%',
+                                        color: '#007bff'
+                                    }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedThemes.has(theme.uuid)}
+                                            onChange={(e) => e.stopPropagation()}
+                                            style={{
+                                                marginRight: '10px',
+                                                cursor: 'pointer'
+                                            }}
+                                        />
+                                        <span>{theme.name}</span>
+                                    </div>
+                                ) : (
+                                    <Link
+                                        to={`/theme/${theme.uuid}`}
+                                        style={{
+                                            textDecoration: 'none',
+                                            color: '#007bff',
+                                            display: 'block',
+                                            width: '100%',
+                                            padding: '4px'
+                                        }}
+                                    >
+                                        {theme.name}
+                                    </Link>
+                                )}
+                            </div>
+
+                            <ul style={{
+                                listStyle: 'none',
+                                paddingLeft: '20px',
+                                marginTop: '5px'
+                            }}>
+                                {notionsMap.get(theme.uuid)?.map(notion => (
+                                    <li key={notion.uuid}>
+                                        <div
+                                            onClick={() => isSelectionMode && selectedThemes.has(theme.uuid) ?
+                                                handleNotionToggle(notion.uuid, theme.uuid) : null
+                                            }
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                backgroundColor: selectedNotions.has(notion.uuid) ? '#e9ecef' : 'transparent',
+                                                padding: '6px',
+                                                borderRadius: '4px',
+                                                marginBottom: '5px',
+                                                cursor: isSelectionMode && selectedThemes.has(theme.uuid) ? 'pointer' : 'default',
+                                                transition: 'background-color 0.2s',
+                                                opacity: !selectedThemes.has(theme.uuid) && isSelectionMode ? 0.5 : 1
+                                            }}
+                                        >
+                                            {isSelectionMode ? (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    width: '100%',
+                                                    color: '#28a745'
+                                                }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedNotions.has(notion.uuid)}
+                                                        onChange={(e) => e.stopPropagation()}
+                                                        disabled={!selectedThemes.has(theme.uuid)}
+                                                        style={{
+                                                            marginRight: '10px',
+                                                            cursor: selectedThemes.has(theme.uuid) ? 'pointer' : 'not-allowed'
+                                                        }}
+                                                    />
+                                                    <span>{notion.name}</span>
+                                                </div>
+                                            ) : (
+                                                <Link
+                                                    to={`/notion/${notion.uuid}`}
+                                                    style={{
+                                                        textDecoration: 'none',
+                                                        color: '#28a745',
+                                                        display: 'block',
+                                                        width: '100%',
+                                                        padding: '4px'
+                                                    }}
+                                                >
+                                                    {notion.name}
+                                                </Link>
+                                            )}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
                         </li>
                     ))}
                 </ul>
-            ) : (
-                <p>Aucun thème disponible pour cette étape.</p>
-            )}
-            <PromptDisplay
-                level={2}
-                data={promptData}
-                uuid={stepUuid}
-                token={token}
-            />
+            </div>
+
+            {/* Panneau de droite : Prompt et contrôles */}
+            <div style={{ flex: 1, padding: '20px' }}>
+                <div style={{
+                    marginBottom: '20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <h2>Gestion du prompt</h2>
+                    <div>
+                        <span style={{
+                            marginRight: '10px',
+                            color: isSelectionMode ? '#28a745' : '#6c757d'
+                        }}>
+                            {selectedThemes.size} thème(s) et {selectedNotions.size} notion(s) sélectionné(s)
+                        </span>
+                        <button
+                            onClick={() => setIsSelectionMode(!isSelectionMode)}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: isSelectionMode ? '#dc3545' : '#28a745',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {isSelectionMode ? 'Terminer la sélection' : 'Modifier la sélection'}
+                        </button>
+                    </div>
+                </div>
+
+                {selectedThemes.size > 0 && (
+                    <div style={{
+                        marginBottom: '20px',
+                        padding: '15px',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '4px'
+                    }}>
+                        <h4 style={{ margin: '0 0 10px 0' }}>Éléments sélectionnés</h4>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                            {Array.from(selectedThemes).map(themeUuid => {
+                                const theme = themes.find(t => t.uuid === themeUuid);
+                                return theme ? (
+                                    <div key={theme.uuid} style={{
+                                        backgroundColor: '#e9ecef',
+                                        padding: '5px 10px',
+                                        borderRadius: '15px',
+                                        fontSize: '0.9em'
+                                    }}>
+                                        {theme.name}
+                                    </div>
+                                ) : null;
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                <PromptDisplay
+                    level={2}
+                    data={getSelectedData()}
+                    uuid={stepUuid}
+                    token={token}
+                />
+            </div>
         </div>
     );
 };
